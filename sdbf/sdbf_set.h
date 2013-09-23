@@ -71,6 +71,9 @@ public:
     /// name this set.
     void set_name(std::string name);
 
+    /// change output separator
+    void set_separator(char sep);
+
     /// setup bloom filter vector
     void vector_init();
 
@@ -85,6 +88,7 @@ private:
     std::vector<class sdbf*> items;
     std::string setname;
     boost::mutex add_hash_mutex;
+    char sep;
 
 };
 

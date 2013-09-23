@@ -352,17 +352,17 @@ class sdhashsrvHandler : virtual public sdhashsrvIf {
     }
     // if we are searching:
     if (searchIndex > 0 ) {
-    tmp=new sdbf_set();
-    info->indexlist=&indexlist;
-    info->setlist=&setlist;
+        tmp=new sdbf_set();
+        info->indexlist=&indexlist;
+        info->setlist=&setlist;
         info->index=NULL;    
         cerr << "Searching " << indexlist.size() << " indexes." << endl; 
-        int resID=createResultID("indexing");
-    add_request(resID,setname+" searching indexes");
+        //int resID=createResultID("indexing");
+        add_request(hashsetID,setname+" indexes");
         tmp=hash_stringlist(filenames,blocksize,processing_thread_count, info);
         string indexres=tmp->index_results();
-    add_result(resID,indexres);
-    delete tmp;
+        add_result(hashsetID,indexres);
+        delete tmp;
         std::cout << "hashString request succeeds for "<< setname << std::endl;
         // do NOT save out
     } else {

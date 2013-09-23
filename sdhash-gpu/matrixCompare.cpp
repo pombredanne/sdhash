@@ -68,7 +68,7 @@ int main(int argc, char **argv)
         store(po::parse_command_line(argc, argv,config), vm);
         notify(vm);
         if (vm.count("help")) {
-            cout << "sdhash-gpu BETA by Candice Quates, April 2013" << endl;
+            cout << "sdhash-gpu BETA by Candice Quates, July 2013" << endl;
             cout << "Usage: sdhash-gpu -d dev -r ref.sdbf -t targ.sdbf" << endl;
 			cout << "  Each reference set is processed as a whole entity."<<endl;
 			cout << "  Target set processing compares each object to the current reference set." << endl; 
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
             return 0;
         }
         if (vm.count("version")) {
-            cout << "sdhash-gpu BETA by Candice Quates, April 2013"<< endl; 
+            cout << "sdhash-gpu BETA by Candice Quates, July 2013"<< endl; 
             return 0;
         }
         if (!vm.count("reference-set") || !(vm.count("target-set"))) {

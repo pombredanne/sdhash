@@ -29,6 +29,7 @@ sdbf_set::sdbf_set() {
     setname="default";    
     index = NULL;
     bf_vector=new vector<bloom_filter*>();
+    sep='|';
 }
 
 /** 
@@ -39,6 +40,7 @@ sdbf_set::sdbf_set(bloom_filter *index) {
     setname="default";    
     this->index=index;
     bf_vector=new vector<bloom_filter*>();
+    sep='|';
 }
 
 /** 
@@ -72,11 +74,12 @@ sdbf_set::sdbf_set(const char *fname) {
     // we can create a bf-ptr-full vector
     bf_vector=new vector<bloom_filter*>();
     vector_init();
+    sep='|';
 }
 
 sdbf_set::~sdbf_set() {
     if (bf_vector->size() > 0) {
-    for (int i=0;i<bf_vector->size();i++)
+    for (uint32_t i=0;i<bf_vector->size();i++)
         delete bf_vector->at(i);
     }
     delete bf_vector;
@@ -161,7 +164,6 @@ sdbf_set::index_results() const {
     for (std::vector<sdbf*>::const_iterator it = items.begin(); it!=items.end() ; ++it)  {
         builder << (*it)->get_index_results() ;    
     }
-    //builder << this->index;
     return builder.str();
 }
 
@@ -176,7 +178,6 @@ sdbf_set::to_string() const {
     for (std::vector<sdbf*>::const_iterator it = items.begin(); it!=items.end() ; ++it)  {
         builder << *it ;    
     }
-    //builder << this->index;
     return builder.str();
 }
 
@@ -221,6 +222,15 @@ sdbf_set::set_name(std::string name) {
 }
 
 /**
+    Change comparison output separator
+    \param sep charactor separator for output
+*/
+void
+sdbf_set::set_separator(char sep) {
+    this->sep=sep;
+}
+
+/**
     Compares each sdbf object in target to every other sdbf object in target
     and prints the results to stdout
 
@@ -228,19 +238,21 @@ sdbf_set::set_name(std::string name) {
 */
 void
 sdbf_set::compare_all(int32_t threshold) { 
-    uint32_t map_on = 0;
     cout.fill('0');
     int end = this->items.size();
     #pragma omp parallel for
     for (int i = 0; i < end ; i++) {
         for (int j = i; j < end ; j++) {
             if (i == j) continue;
-            int32_t score = this->items.at(i)->compare(this->items.at(j),map_on,0);
+            int32_t score = this->items.at(i)->compare(this->items.at(j),0);
             if (score >= threshold)  {
                 #pragma omp critical 
                 {
-                cout << this->items.at(i)->name() << "|" << this->items.at(j)->name() ;
-                cout << "|" << setw (3) << score << std::endl;
+                cout << this->items.at(i)->name() << this->sep << this->items.at(j)->name() ;
+                if (score != -1)
+                    cout << this->sep << setw (3) << score << std::endl;
+                else 
+                    cout << this->sep <<  score << std::endl;
                 }
             }
         }            
@@ -258,7 +270,6 @@ sdbf_set::compare_all(int32_t threshold) {
 */
 std::string 
 sdbf_set::compare_all_quiet(int32_t threshold, int32_t thread_count) { 
-    uint32_t map_on = 0;
     std::stringstream out;
     out.fill('0');
     int end = this->items.size();
@@ -268,12 +279,15 @@ sdbf_set::compare_all_quiet(int32_t threshold, int32_t thread_count) {
     for (int i = 0; i < end ; i++) {
         for (int j = i; j < end ; j++) {
             if (i == j) continue;
-            int32_t score = this->items.at(i)->compare(this->items.at(j),map_on,0);
+            int32_t score = this->items.at(i)->compare(this->items.at(j),0);
             if (score >= threshold)  {
                 #pragma omp critical 
                 {
-                out << this->items.at(i)->name() << "|" << this->items.at(j)->name() ;
-                out << "|" << setw (3) << score << std::endl;
+                out << this->items.at(i)->name() << this->sep << this->items.at(j)->name() ;
+                if (score != -1)
+                    out << this->sep << setw (3) << score << std::endl;
+                else 
+                    out << this->sep << score << std::endl;
                 }
             }
         }            
@@ -290,19 +304,21 @@ sdbf_set::compare_all_quiet(int32_t threshold, int32_t thread_count) {
 */
 void
 sdbf_set::compare_to(sdbf_set *other,int32_t threshold,uint32_t sample_size) {
-    uint32_t map_on = 0;
     cout.fill('0');
     int tend = other->size();
     int qend = this->size();
     #pragma omp parallel for
     for (int i = 0; i < qend ; i++) {
         for (int j = 0; j < tend ; j++) {
-            int32_t score = this->items.at(i)->compare(other->items.at(j),map_on,sample_size);
+            int32_t score = this->items.at(i)->compare(other->items.at(j),sample_size);
             if (score >= threshold) {
                 #pragma omp critical 
                 {
-                cout << this->items.at(i)->name() << "|" << other->items.at(j)->name() ;
-                cout << "|" << setw (3) << score << std::endl;
+                cout << this->items.at(i)->name() << this->sep << other->items.at(j)->name() ;
+                if (score != -1)
+                    cout << this->sep << setw (3) << score << std::endl;
+                else 
+                    cout << this->sep <<  score << std::endl;
                 }
             }
         }
@@ -320,7 +336,6 @@ sdbf_set::compare_to(sdbf_set *other,int32_t threshold,uint32_t sample_size) {
 */
 std::string
 sdbf_set::compare_to_quiet(sdbf_set *other,int32_t threshold,uint32_t sample_size, int32_t thread_count) {
-    uint32_t map_on = 0;
     std::stringstream out;
     out.fill('0');
     int tend = other->size();
@@ -330,12 +345,15 @@ sdbf_set::compare_to_quiet(sdbf_set *other,int32_t threshold,uint32_t sample_siz
     #pragma omp parallel for
     for (int i = 0; i < qend ; i++) {
         for (int j = 0; j < tend ; j++) {
-            int32_t score = this->items.at(i)->compare(other->items.at(j),map_on,sample_size);
+            int32_t score = this->items.at(i)->compare(other->items.at(j),sample_size);
             if (score >= threshold) {
                 #pragma omp critical 
                 {
-                out << this->items.at(i)->name() << "|" << other->items.at(j)->name() ;
-                out << "|" << setw (3) << score << std::endl;
+                out << this->items.at(i)->name() << this->sep << other->items.at(j)->name() ;
+                if (score != -1)
+                    out << this->sep << setw (3) << score << std::endl;
+                else 
+                    out << this->sep << score << std::endl;
                 }
             }
         }
@@ -357,8 +375,8 @@ sdbf_set::filter_count() {
 */
 void
 sdbf_set::vector_init() {
-    for (int i=0;i<items.size(); i++)
-        for (int n=0; n< items.at(i)->filter_count() ; n++) {
+    for (uint32_t i=0;i<items.size(); i++)
+        for (uint32_t n=0; n< items.at(i)->filter_count() ; n++) {
         uint8_t *data=items.at(i)->clone_filter(n);
         bloom_filter *tmp=new bloom_filter(data,256,i,sdbf::get_elem_count(items.at(i),n),items.at(i)->hamming[n]);
         string *tmpstr= new string(items.at(i)->name());

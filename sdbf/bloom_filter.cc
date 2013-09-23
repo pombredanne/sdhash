@@ -85,6 +85,8 @@ bloom_filter::bloom_filter(string indexfilename){
         ifs.read((char*)bf_comp,comp_size);
         // decompress.      
         int32_t result=this->decompress(bf_comp);
+        if (result < 0) // failed to parse
+            throw -2;
         free(bf_comp);
     } else 
        throw -1; // failed to read
@@ -238,12 +240,11 @@ bloom_filter::set_bloom_id(int id) {
 void
 bloom_filter::fold(uint32_t times){
     // probably also need some sort of mutex while this happens
-    int i,j;
     // size divided by 8,to use 64-bit chunks, and cast the bf 
     uint64_t rsize = bf_size/8;
     uint64_t *bf_64 = (uint64_t *)bf;
-    for (i=0; i<times; i++) {
-        for (j=0;j<rsize/2;j++) 
+    for (uint32_t i=0; i<times; i++) {
+        for (uint64_t j=0;j<rsize/2;j++) 
             bf_64[j] |= bf_64[j+(rsize/2)];
         rsize=rsize/2;
     if (rsize == 64) 
@@ -275,7 +276,7 @@ bloom_filter::add(bloom_filter *other) {
     uint64_t *bf2_64 = (uint64_t *)other->bf;
     if (other->bf_size != bf_size) 
     return 1; // must add two of same size
-    for (int j=0;j < bf_size/8;j++)
+    for (uint32_t j=0;j < bf_size/8;j++)
     bf_64[j]|=bf2_64[j];
     return 0;
 }

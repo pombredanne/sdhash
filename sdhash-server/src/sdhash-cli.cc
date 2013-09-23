@@ -78,18 +78,16 @@ int main( int argc, char **argv) {
                 ("export,e","export SDBFs to file <N> <file>.")
                 ("results,r",po::value<int32_t>(&resultID),"retrieve result by ID")
                 ("results-list","retrieve results list")
-                ("type,u",po::value<std::string>(&user_name),"type to store or retrieve results under")
+                ("type",po::value<std::string>(&user_name),"result type, default|indexing|web")
                 ("show-set-data,d",po::value<int32_t>(&resultID),"retrieve result by ID")
                 ("show-set-names,n",po::value<int32_t>(&resultID),"retrieve result by ID")
-                ("name",po::value<std::string>(&input_name),"declare set name")
                 ("threshold,t",po::value<int32_t>(&sdbf_sys.output_threshold)->default_value(1),"only show results >=threshold")
                 ("block-size,b",po::value<uint32_t>(&sdbf_sys.dd_block_size),"hashes input files in nKB blocks")
                 ("sample-size,s",po::value<uint32_t>(&sdbf_sys.sample_size)->default_value(0),"sample N filters for comparisons")
+                ("name",po::value<std::string>(&input_name),"declare set name")
                 ("index","generate indexes while hashing")
-                ("search-set","match at set level")
-                ("search-all","match at file level, all matching sets")
-                ("search-first","match at file level, first set match")
-                ("warnings,w","turn on warnings")
+                ("index-search","match indexes at set level")
+                ("verbose","turn on warnings")
                 ("version","show version info")
                 ("help,h","produce help message")
             ;
@@ -132,10 +130,6 @@ int main( int argc, char **argv) {
     if (vm.count("host")) {
         sdbf_sys.hostname=(char*)hostname.c_str();
     }
-        if (vm.count("index") && !vm.count("name")) {
-            cerr << "sdhash:  ERROR: indexing requires base setname" << std::endl;
-            return -1;
-        }
     if (vm.count("import"))
         sdbf_sys.options|=MODE_IMPORT;
     if (vm.count("export"))
@@ -161,12 +155,13 @@ int main( int argc, char **argv) {
     if (vm.count("type")) {
         sdbf_sys.username=(char*)user_name.c_str();
     }
-    if (vm.count("search-all") || vm.count("search-first")|| vm.count("search-set")) {
+    if (vm.count("index-search")) {
         sdbf_sys.options|=MODE_HASH;
+        if (sdbf_sys.dd_block_size == 0);
+            sdbf_sys.dd_block_size=16;
     }
-    }
-    catch (std::exception &e)
-    {
+
+    } catch (std::exception &e) {
         std::cout << e.what() << "\n";
         return 0;
     }
@@ -177,11 +172,13 @@ int main( int argc, char **argv) {
     boost::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
     sdhashsrvClient client(protocol);
     if (sdbf_sys.options == 0 && vm.count("input-files")) {
-    sdbf_sys.options|=MODE_HASH;
-    if (!vm.count("name")) {
+        sdbf_sys.options|=MODE_HASH;
+        if (vm.count("index-search")) {
+            input_name = "searching"; 
+        } else if (!vm.count("name")) {
             cerr << "SDHASH: hashset must be named with --name " << std::endl;
-        return -1;
-    }    
+            return -1;
+        }    
     }
     if (sdbf_sys.options == 0) {
         std::cout << VERSION_INFO << ", rev " << REVISION << std::endl;
@@ -233,17 +230,20 @@ int main( int argc, char **argv) {
             case MODE_HASH:
                 // change to hash_string to make windows compat
                 hashsetID = client.createHashsetID();
-                if (vm.count("index"))
+                if (vm.count("index")) {
                     client.hashString(input_name,inputlist,sdbf_sys.dd_block_size,hashsetID,-1);
-                else if (vm.count("search-first"))
-                    client.hashString(input_name,inputlist,sdbf_sys.dd_block_size,hashsetID,1);
-                else if (vm.count("search-all"))
-                    client.hashString(input_name,inputlist,sdbf_sys.dd_block_size,hashsetID,2);
-                else if (vm.count("search-set"))
-                    client.hashString(input_name,inputlist,sdbf_sys.dd_block_size,hashsetID,3);
-                else  // plain
+                    result="Hashing in progress for "+input_name+".sdbf";
+                }
+                else if (vm.count("index-search")) {
+                    int resultID= client.createResultID("indexing");
+cout << sdbf_sys.dd_block_size;
+                    client.hashString(input_name,inputlist,sdbf_sys.dd_block_size,resultID,3);
+                    result="Searching in progress, result id: "+boost::lexical_cast<string>(resultID);
+                }
+                else { // plain 
                     client.hashString(input_name,inputlist,sdbf_sys.dd_block_size,hashsetID,0);
-                result="Hashing in progress for "+input_name+".sdbf";
+                    result="Hashing in progress for "+input_name+".sdbf";
+                }
                 break;
             case MODE_EXPORT:
                 if (file_cnt == 2) {

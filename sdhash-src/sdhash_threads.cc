@@ -32,16 +32,15 @@ void
 *thread_sdbf_hashfile( void *task_param) {
     filehash_task_t *task = (filehash_task_t *)task_param;
     struct stat file_stat;
-    int32_t chunks = 0,csize = 0;
     ifstream *is = new ifstream();
 
-    int i;
+    uint32_t i;
     for( i=task->tid; i<task->file_count; i+=task->tcount) {
         if (stat(task->filenames[i],&file_stat))
             continue;
         is->open(task->filenames[i], ios::binary);
         try {
-         if (sdbf_sys.verbose) 
+        if (sdbf_sys.verbose) 
             cerr << "sdhash: digesting file " << task->filenames[i] << endl;
             if (!task->addset) {
                 class sdbf *sdbfm = new sdbf(task->filenames[i],is,0,file_stat.st_size,task->info);
@@ -62,6 +61,7 @@ void
        is->close();
     }
     delete is;
+    return 0;
 }
 
 sdbf_set
@@ -118,10 +118,10 @@ sdbf_set
  */
 void
 sdbf_hash_files( char **filenames, uint32_t file_count, int32_t thread_cnt,sdbf_set *addto, index_info *info ) {
-    int32_t i, t, j;
+    uint32_t i;
+    int32_t t;
     //sdbf_set *myset = new sdbf_set();
     struct stat file_stat;
-    int32_t chunks = 0,csize = 0;
     ifstream *is = new ifstream();
 
     // Sequential implementation
@@ -177,27 +177,20 @@ sdbf_hash_files( char **filenames, uint32_t file_count, int32_t thread_cnt,sdbf_
 
 void
 sdbf_hash_files_dd( char **filenames, uint32_t file_count, uint32_t dd_block_size, uint64_t chunk_size, sdbf_set *addto, index_info *info) {
-    int32_t i,j, result = 0;
-    struct stat file_stat;
+    uint32_t i,j;
     uint64_t chunks = 0,csize = 0;
     ifstream *is = new ifstream();
-   int tailflag = 0;
-   uint64_t filesize;
+    int tailflag = 0;
+    uint64_t filesize;
     for( i=0; i<file_count; i++) {
-      tailflag=0;
-       filesize=fs::file_size(filenames[i]);
-       // if (filesize=fs::file_size(filenames[i])) {
-   //      if (sdbf_sys.warnings) 
-   //         cerr<< "sdhash: cannot access " << filenames[i] << endl;
-            //cerr << strerror(errno) << endl;
-   //         continue; // try the next one if cannot access
-   //     }
-      if (sdbf_sys.verbose) 
-         cerr << "sdhash: digesting file " << filenames[i] << endl;
+        tailflag=0;
+        filesize=fs::file_size(filenames[i]);
+        if (sdbf_sys.verbose) 
+            cerr << "sdhash: digesting file " << filenames[i] << endl;
         is->open(filenames[i], ios::binary);
         if (filesize > chunk_size && chunk_size > 0) {
             chunks = filesize / (chunk_size) ;
-          // adjusting for too small of a last fragment
+            // adjusting for too small of a last fragment
             // on a single segment piece
             if (filesize - chunk_size <= 512) {
                 chunks=0;
@@ -223,7 +216,7 @@ sdbf_hash_files_dd( char **filenames, uint32_t file_count, uint32_t dd_block_siz
                         csize=csize+(filesize-((chunks+1)*chunk_size)) ;
                 } else {
                     csize=chunk_size;
-            }
+                }
                 try {
                     if (addto!=NULL) {
                         class sdbf *sdbfm = new sdbf(fname,is,dd_block_size,csize,info);
@@ -231,7 +224,7 @@ sdbf_hash_files_dd( char **filenames, uint32_t file_count, uint32_t dd_block_siz
                     } else {
                         class sdbf *sdbfm = new sdbf(fname,is,dd_block_size,csize,info);
                         std::cout <<sdbfm;
-        delete sdbfm;
+                        delete sdbfm;
                     }
                 } catch (int e) {
                     if (e==-2)

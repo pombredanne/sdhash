@@ -17,7 +17,7 @@ LD = $(CC)
 ifneq ($(MAKECMDGOALS),debug)
 CFLAGS = -fPIC -fopenmp -msse4.2 -O3 -fno-strict-aliasing -D_FILE_OFFSET_BITS=64 -D_LARGE_FILE_API -D_BSD_SOURCE -I./external 
 else
-CFLAGS = -fPIC -fopenmp -msse4.2 -O0 -g -D_FILE_OFFSET_BITS=64 -D_LARGE_FILE_API -D_BSD_SOURCE -I./external 
+CFLAGS = -fPIC -fopenmp -msse4.2 -O0 -g -D_FILE_OFFSET_BITS=64 -D_LARGE_FILE_API -D_BSD_SOURCE -I./external -Wall
 endif
 
 LDFLAGS = -fopenmp -L . -L./external/stage/lib -lboost_system -lboost_filesystem -lboost_program_options -lc -lm -lcrypto -lboost_thread -lpthread 
@@ -47,8 +47,8 @@ install-server: install server
 	cp sdhash-server/sdhash-mgr $(INSTDIR)
 	cp sdhash-server/sdhash-cli $(INSTDIR)
 
-version: 
-#	echo "#define REVISION \"`svnversion`\"" > sdhash-src/version.h
+#version: 
+	#echo "#define REVISION \"`svnversion`\"" > sdhash-src/version.h
 
 man: man/sdhash.1 man/sdhash-cli.1 man/sdhash-srv.1
 

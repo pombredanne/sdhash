@@ -26,7 +26,7 @@
 #define PORT 2700
 
 #define SDBF_VERSION     2
-#define VERSION_INFO    "sdhash-3.2.5 by Vassil Roussev, Candice Quates, May 2013"
+#define VERSION_INFO    "sdhash-3.3 by Vassil Roussev, Candice Quates, 07/2013"
 
 // Command line options
 #define OPT_MAX       3

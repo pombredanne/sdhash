@@ -356,7 +356,8 @@ int sdbfsetCompare(sdbf_set *refset, sdbf_set *target, bool quiet, int confidenc
 			    result_count++;
 			    score+=results[i];
 			}
-			filter_count++;
+                        if (elem_A[i] >= 16) 
+                            filter_count++;
 			if (i+1 == setsize) {
 				if (result_count!=0  && (score/filter_count >= confidence)) {
 					cout << target->at(m)->name()  << "|"<< refset->bf_vector->at(i)->name() << "|" << score/filter_count<< endl;

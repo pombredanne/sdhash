@@ -49,7 +49,7 @@ public:
     uint64_t input_size();  
 
     /// matching algorithm, take other object and run match
-    int32_t compare(sdbf *other, uint32_t map_on, uint32_t sample);
+    int32_t compare(sdbf *other, uint32_t sample);
 
     /// return a string representation of this sdbf
     string to_string() const ; 
@@ -81,15 +81,12 @@ private:
     void gen_block_sdbf_mt( uint8_t *file_buffer, uint64_t file_size, uint64_t block_size, uint32_t thread_cnt);
 
     static void *thread_gen_block_sdbf( void *task_param);
-    static int     sdbf_score( sdbf *sd_1, sdbf *sd_2, uint32_t map_on, uint32_t sample);
-    static double  sdbf_max_score( sdbf_task_t *task, uint32_t map_on);
-    //static void *thread_sdbf_max_score( void *task_param);
+    static int     sdbf_score( sdbf *sd_1, sdbf *sd_2, uint32_t sample);
+    static double  sdbf_max_score( sdbf_task_t *task);
 
     void print_indexes(uint32_t threshold, vector<uint32_t> *matches, uint64_t pos);
-    void print_smaller_indexes(uint32_t threshold, vector<uint32_t> *matches, vector<bloom_filter *> *indexes,uint64_t pos, bloom_filter *matched,bool basename);
     void reset_indexes(vector<uint32_t> *matches);
     bool check_indexes(uint32_t* sha1, vector<uint32_t> *matches);
-    uint32_t check_smaller_indexes(uint32_t* sha1, vector<uint32_t> *matches, vector<bloom_filter*> *indexes);
     bool is_block_null(uint8_t *buffer, uint32_t size);
     
 public:

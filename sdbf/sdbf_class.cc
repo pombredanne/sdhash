@@ -197,7 +197,7 @@ sdbf::sdbf(FILE *in) {
         read_cnt = fscanf( in, fmt, b64);
         free(this->buffer);
         this->buffer =(uint8_t*) b64decode( (char*)b64, (int)b64_len, &d_len);
-        if( d_len != this->bf_count*this->bf_size) {
+        if( (uint32_t)d_len != this->bf_count*this->bf_size) {
             if (config->warnings)
                 fprintf( stderr, "ERROR: Incorrect base64 decoding length. Expected: %d, actual: %d\n", this->bf_count*this->bf_size, d_len);
             free (b64); // cleanup in case of wanting to go on
@@ -206,6 +206,7 @@ sdbf::sdbf(FILE *in) {
         free( b64);
     }
     compute_hamming();
+    if (read_cnt) read_cnt++; // making compiler warnings shut up.
     this->info=NULL;
 }
 
@@ -254,16 +255,15 @@ sdbf::input_size() {
 /**
  * Compares this sdbf to other passed sdbf, returns a confidence score
     \param other sdbf* to compare to self
-    \param map_on turns on a heat map
     \param sample sets the number of BFs to sample - 0 uses all
     \returns int32_t confidence score
 */
 int32_t
-sdbf::compare( sdbf *other, uint32_t map_on, uint32_t sample) {
+sdbf::compare( sdbf *other, uint32_t sample) {
     if (config->warnings)
         cerr << this->name() << " vs " << other->name() << endl;
 
-    return sdbf_score( this, other, map_on, sample);
+    return sdbf_score( this, other, sample);
 }
 
 /** 
@@ -314,7 +314,7 @@ sdbf::to_string () const { // write self to stream
         hash << (int)strlen((char*)this->hashname) << ":" << this->hashname << ":" << this->orig_file_size << ":sha1:";    
         hash << this->bf_size << ":" << this->hash_count<< ":" << hex << this->mask << ":" << dec;    
         hash << this->max_elem << ":" << this->bf_count << ":" << this->dd_block_size ;
-        int i;
+        uint32_t i;
         for( i=0; i<this->bf_count; i++) {
             char *b64 = b64encode( (char*)this->buffer+i*this->bf_size, this->bf_size);
             hash << ":" << setw (2) << hex << this->elem_counts[i];
