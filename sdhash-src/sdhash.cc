@@ -15,7 +15,9 @@
 #include "boost/lexical_cast.hpp"
 
 #include <fstream>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
@@ -148,6 +150,7 @@ int main( int argc, char **argv) {
             cerr << "sdhash:  ERROR: indexing requires output base filename " << endl;
             return -1;
         }
+#ifdef _OPENMP
         if (!vm.count("threads")) {
             sdbf_sys.thread_cnt = omp_get_max_threads();
             if (vm.count("verbose"))
@@ -157,6 +160,7 @@ int main( int argc, char **argv) {
             if (vm.count("verbose"))
                 cerr << "sdhash: thread count " << sdbf_sys.thread_cnt << endl;
         }
+#endif
     }
     catch(exception& e)
     {
