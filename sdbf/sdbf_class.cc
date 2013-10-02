@@ -15,6 +15,9 @@
 #include <string>
 #include <iomanip>
 
+#include <boost/lexical_cast.hpp>
+
+using namespace std;
 /** 
     \internal
     Initialize static configuration object with sensible defaults.
@@ -126,75 +129,67 @@ sdbf::sdbf(const char *name, char *str, uint32_t dd_block_size, uint64_t length,
     compute_hamming();
 }
 
-/**
-    Reads an already generated sdbf from open file.  
-    Throws exceptions in case of bad formatting.
-    \param in FILE* open formatted as list of sdbfs
+
+/** Reads a generated sdbf from a string.
+    \param str string reference
 */
-sdbf::sdbf(FILE *in) {
-
-   char *b64, fmt[64];
-    uint8_t  buffer[16*KB];
-    char sdbf_magic[16], hash_magic[8];
-    uint32_t colon_cnt, read_cnt, hash_cnt, b64_len;
-    int d_len;
-    uint32_t version, name_len;
-    uint64_t i;
-
-    if( feof( in))
-        throw -1; //end of file - quit
-
+sdbf::sdbf(const std::string& str) {
+    if (str.length() < 344) // less than absolute minimum, but probably good enough.
+        throw -1; // too small!
     sdbf_create(NULL);
 
-    for( i=0, colon_cnt=3; i<MAX_MAGIC_HEADER && !feof(in); i++) {
-        buffer[i] = fgetc( in);
-        if (i==4 && strncmp((char*)buffer,"sdbf",4) )
-            throw -2;
-        if( buffer[i] == DELIM_CHAR) {
-            buffer[i] = 0x20;
-            colon_cnt--;
-            if( !colon_cnt)
-                break;
-        }
-    }
-    if( feof( in))
-        throw -3 ; // end of file prematurely
-    buffer[i] = 0;
-    sscanf( (char*)buffer, "%s %d %d", sdbf_magic, &version, &name_len);
-    if( (strcmp( sdbf_magic, MAGIC_STREAM) && strcmp( sdbf_magic, MAGIC_DD)) || version != 3) {
-        if (config->warnings)
-            fprintf( stderr, "ERROR: Unsupported format '%s:%02d'. Expecting '%s:03' or '%s:03'\n", sdbf_magic, version, MAGIC_STREAM, MAGIC_DD);
-        throw -2 ; // unsupported format - caller should exit
-    }
-    fmt[0] = '%';
-    sprintf( fmt+1, "%dc", name_len);
+    std::stringstream ss(str);
+    string magic,process;
+    std::getline(ss,magic,':');
+    std::getline(ss,process,':');
+    std::getline(ss,process,':'); 
+    std::getline(ss,process,':'); // copy+allocate in
     this->filenamealloc=true;
-    this->hashname = (char*)alloc_check( ALLOC_ZERO, name_len+2, "sdbf_from_stream", "this->hashname", ERROR_EXIT);
-    read_cnt = fscanf( in, fmt, this->hashname);
-    read_cnt = fscanf( in, ":%ld:%4s:%d:%d:%x:%d:%d", &(this->orig_file_size), hash_magic, &(this->bf_size), &(this->hash_count), &(this->mask), &(this->max_elem), &(this->bf_count));
+    this->hashname = (char*)alloc_check( ALLOC_ZERO, process.length()+1, "sdbf_from_stream", "this->hashname", ERROR_EXIT);
+    strncpy(this->hashname,process.c_str(),process.length()+1);
+    std::getline(ss,process,':');  // set
+    this->orig_file_size=boost::lexical_cast<uint64_t>(process);
+    std::getline(ss,process,':');  // sha1 // auto
+    std::getline(ss,process,':');  // bloom size (256) 
+    this->bf_size=boost::lexical_cast<uint32_t>(process);
+    std::getline(ss,process,':');  // 5 -- can auto-set
+    this->hash_count=boost::lexical_cast<uint16_t>(process);
+    std::getline(ss,process,':');  // mask: we always look up
+    std::getline(ss,process,':');  // max elem 
+    this->max_elem=boost::lexical_cast<uint32_t>(process);
+    std::getline(ss,process,':');  // filter count
+    this->bf_count=boost::lexical_cast<uint32_t>(process);
     this->buffer = (uint8_t *)alloc_check( ALLOC_ZERO, this->bf_count*this->bf_size, "sdbf_from_stream", "this->buffer", ERROR_EXIT);
-    // DD fork
-    if( !strcmp( sdbf_magic, MAGIC_DD)) {
-        read_cnt = fscanf( in, ":%d", &(this->dd_block_size));
-        this->elem_counts = (uint16_t *)alloc_check( ALLOC_ZERO, this->bf_count*sizeof(uint16_t), "sdbf_from_stream", "this->elem_counts", ERROR_EXIT);
-        for( i=0; i<this->bf_count; i++) {
-            read_cnt = fscanf( in, ":%2x:%344s", &hash_cnt, buffer);
-            this->elem_counts[i] = (uint16_t)hash_cnt;
-            d_len = b64decode_into( buffer, 344, this->buffer + i*this->bf_size);
-            if( d_len != 256) {
-                if (config->warnings)
-                    fprintf( stderr, "ERROR: Unexpected decoded length for BF: %d. name: %s, BF#: %d\n", d_len, this->hashname, (int)i);
-                throw -2; // unsupported format - caller should exit
-            }
-        }
-    // Stream fork
+    // dd fork
+    int d_len = 0;
+    if (!strcmp(magic.c_str(), MAGIC_DD)) { 
+       std::getline(ss,process,':');  // dd block size
+       this->dd_block_size=boost::lexical_cast<uint32_t>(process);
+       // set up elem counts array
+       this->elem_counts = (uint16_t *)alloc_check( ALLOC_ZERO, this->bf_count*sizeof(uint16_t), "sdbf_from_stream", "this->elem_counts", ERROR_EXIT);
+       for (uint i=0; i< this->bf_count; i++) {
+           uint32_t tmpelem=0;
+           std::getline(ss,process,':'); // elem_counts
+           std::stringstream sstmp;
+           sstmp << std::hex << process;
+           sstmp >> tmpelem;
+           this->elem_counts[i]=boost::lexical_cast<uint16_t>(tmpelem);
+           std::getline(ss,process,':'); // buffer
+           d_len = b64decode_into( (uint8_t*)process.c_str(), 344, this->buffer + i*this->bf_size); 
+           if( d_len != 256) {
+               if (config->warnings)
+                   fprintf( stderr, "ERROR: Unexpected decoded length for BF: %d. name: %s, BF#: %d\n", d_len, this->hashname, (int)i);
+               throw -2; // unsupported format - caller should exit
+           }
+       }
+    // stream fork 
     } else {
-        read_cnt = fscanf( in, ":%d:", &(this->last_count));
-        b64_len = this->bf_count*this->bf_size;
+        std::getline(ss,process,':');  // last count
+        this->last_count=boost::lexical_cast<uint32_t>(process);
+        uint32_t b64_len = this->bf_count*this->bf_size;
         b64_len = 4*(b64_len/3 +1*(b64_len % 3 > 0 ? 1 : 0));
-        sprintf( &fmt[1], "%ds", b64_len);
-        b64 = (char*)alloc_check( ALLOC_ZERO, b64_len+2, "sdbf_from_stream", "b64", ERROR_EXIT);
-        read_cnt = fscanf( in, fmt, b64);
+        char *b64 = (char*)alloc_check( ALLOC_ZERO, b64_len+2, "sdbf_from_stream", "b64", ERROR_EXIT);
+        ss.read(b64,b64_len);
         free(this->buffer);
         this->buffer =(uint8_t*) b64decode( (char*)b64, (int)b64_len, &d_len);
         if( (uint32_t)d_len != this->bf_count*this->bf_size) {
@@ -206,7 +201,6 @@ sdbf::sdbf(FILE *in) {
         free( b64);
     }
     compute_hamming();
-    if (read_cnt) read_cnt++; // making compiler warnings shut up.
     this->info=NULL;
 }
 
@@ -221,7 +215,7 @@ sdbf::~sdbf() {
     if (elem_counts)
         free(elem_counts);
     if (filenamealloc)
-    free(hashname);
+        free(hashname);
 } 
 
 /**
@@ -323,6 +317,9 @@ sdbf::to_string () const { // write self to stream
         }
     }
     hash << endl;
+    //this->big_filter->set_name((string)this->hashname);
+    //hash << this->big_filter->to_string()  ;
+    //hash << endl;
     return hash.str();
 }
 
@@ -367,6 +364,10 @@ sdbf::sdbf_create(const char *name) {
     this->buffer = NULL;
     this->info=NULL;
     this->filenamealloc=false;
+    // testing: empty "big filter" for creation  -- start with 1
+    this->big_filters=new vector<bloom_filter*>();
+    bloom_filter *tmp=new bloom_filter(BIGFILTER,5,160,0.01);
+    this->big_filters->push_back(tmp);
 }
 
 

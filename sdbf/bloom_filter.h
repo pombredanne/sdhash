@@ -20,12 +20,15 @@ public:
     /// base constructor
     bloom_filter(uint64_t size, uint16_t hash_count, uint64_t max_elem, double max_fp); 
 
-    /// construct from file - not add to master or fold up. 
+    /// construct from file - no folding -- sdbf-idx form
     bloom_filter(string indexfilename);
 
     /// construct bloom filter from buffer 
     bloom_filter(uint8_t* data,uint64_t size,int id, int bf_elem_ct, uint16_t hamming);
     
+    /// construct from string - optional folds
+    bloom_filter(string filter, int folds);
+
     /// destructor
     ~bloom_filter();
 
@@ -50,12 +53,20 @@ public:
     void fold(uint32_t times);
     /// add another same-sized bloom filter to this one
     int add(bloom_filter *other);
+
+    /// compare to other filter
+    int compare(bloom_filter *other,double scale);
+
     /// write bloom filter to .idx file
     int write_out(string filename);
 
     /// id associated with bloom filter (used for grouping)
     int bloom_id();  
     void set_bloom_id(int id);
+    string to_string () const ;
+    void compute_hamming();
+
+
 
 private:
     /// actual query/insert function
@@ -70,14 +81,16 @@ public:
 
     uint8_t  *bf;            // Beginning of the BF 
     uint16_t  hamming;        // weight of this bf
-private:
+    uint32_t  hamminglg;        // weight of this bf
+    uint64_t  bf_size;       // BF size in bytes (==m/8)
+    uint64_t  bit_mask;      // Bit mask
     uint64_t  max_elem;      // Max number of elements
+    uint16_t  hash_count;    // Number of hash functions used (k)
+private:
     double    max_fp;        // Max FP rate
     
-    uint64_t  bf_size;       // BF size in bytes (==m/8)
+    //uint64_t  bf_size;       // BF size in bytes (==m/8)
     uint64_t  bf_elem_count; // Actual number of elements inserted
-    uint16_t  hash_count;    // Number of hash functions used (k)
-    uint64_t  bit_mask;      // Bit mask
     uint64_t  comp_size;     // size of compressed bf to be read
     string    setname;       // name associated with bloom filter
     bool      created;       // set if we allocated the bloom filter ourselves

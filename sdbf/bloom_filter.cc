@@ -7,7 +7,9 @@
 #include <fstream>
 #include <sstream>
 #include <boost/lexical_cast.hpp>
-#include <smmintrin.h> // temp for checkin
+#include <smmintrin.h> 
+
+#include <boost/math/special_functions/round.hpp>
 
 #include "../lz4/lz4.h"
 #include "sdbf_defines.h"
@@ -108,14 +110,17 @@ bloom_filter::bloom_filter(uint8_t* data, uint64_t size, int id, int bf_elem_ct,
     // this is for 256-byte BFs,
     // and elem_ct = 192, bit_mask=2047 (pre-calculated)
     // and hash_count=5 
-    bit_mask=2047;
+    uint16_t log_size = 0;
+    for( uint64_t tmp=size; tmp; tmp >>= 1, log_size++);
+    bit_mask = BIT_MASKS_32[log_size+1];
+    //bit_mask=2047;
     bf_size=size;
     hash_count=5;
     bf_elem_count=bf_elem_ct; // could also be 160
     bl_id = id;
     this->hamming = hamming;
-    bf=(uint8_t*)malloc(256);
-    memcpy(bf,data,256);
+    bf=(uint8_t*)malloc(size);
+    memcpy(bf,data,size);
     // marker for non-destructive destroy?
     created=true;
 }
@@ -247,8 +252,8 @@ bloom_filter::fold(uint32_t times){
         for (uint64_t j=0;j<rsize/2;j++) 
             bf_64[j] |= bf_64[j+(rsize/2)];
         rsize=rsize/2;
-    if (rsize == 64) 
-           break; // also error?
+        if (rsize == 32) 
+            break; // also error?
     }
     bf_size=rsize*8;
     // recalculate mask
@@ -275,9 +280,9 @@ bloom_filter::add(bloom_filter *other) {
     uint64_t *bf_64 = (uint64_t *)bf;
     uint64_t *bf2_64 = (uint64_t *)other->bf;
     if (other->bf_size != bf_size) 
-    return 1; // must add two of same size
+        return 1; // must add two of same size
     for (uint32_t j=0;j < bf_size/8;j++)
-    bf_64[j]|=bf2_64[j];
+        bf_64[j]|=bf2_64[j];
     return 0;
 }
 
@@ -334,4 +339,91 @@ bloom_filter::query_and_set(uint32_t *sha1, bool mode_set) {
             return false;
     } else
         return bit_cnt == hash_count;
+}
+
+int
+bloom_filter::compare(bloom_filter *other, double scale) {
+    if (this->bf_size != other->bf_size) 
+        return -1; // must compare equal sized filters
+    uint64_t *bf_64 = (uint64_t *)bf;
+    uint64_t *bf2_64 = (uint64_t *)other->bf;
+    uint64_t res=0;
+    for (int i=0 ; i < bf_size / 8 ; i++) {
+        res+=_mm_popcnt_u64(bf_64[i] & bf2_64[i]);
+    }
+    int max_est = (this->hamminglg < other->hamminglg) ? this->hamminglg : other->hamminglg;
+    double m = bf_size*8;
+    double k = 5;
+    double exp = 1-1.0/m;
+    int x=this->bf_elem_count;
+    int y=other->bf_elem_count;
+    int min_est = boost::math::round((double)m*(1 - pow(exp,(double)k*x) - pow(exp,(double)k*y) + pow(exp,(double)k*(x+y))) );
+    int cut_off=boost::math::round(scale*(double)(max_est-min_est)+(double)min_est);
+
+    int32_t result=(res > cut_off) ? boost::math::round<int32_t>(100.0*(double)(res-cut_off)/(double)(max_est-cut_off)) : 0;
+    return result;
+
+}
+/** 
+   \internal
+   Temporary for output
+*/
+string
+bloom_filter::to_string () const {
+    std::stringstream string_bf;
+    //string_bf << "sdbf-mr:" << bf_size << ":" << bf_elem_count << ":"<< hash_count;
+    //string_bf << ":" << bit_mask << ":0:" ; // 0 is compressed size, we are not compressed
+    //string_bf << setname << ":" ;
+    char *b64=b64encode((char*)bf,bf_size+3);
+    string_bf << b64; 
+   // string_bf << endl;
+    free(b64);
+    return string_bf.str();
+}
+
+// possibly change folds to target size? 
+bloom_filter::bloom_filter(string filter, int folds) {
+    std::istringstream iss(filter);
+    //if (ifs.is_open()) {
+    string process;
+    // headerbit
+    getline(iss,process,':'); // ignore
+    // bf_size
+    getline(iss,process,':');
+    bf_size=boost::lexical_cast<uint64_t>(process);
+    // elem_count
+    getline(iss,process,':');
+    bf_elem_count=boost::lexical_cast<uint64_t>(process);
+    // hash_count
+    getline(iss,process,':');
+    hash_count=boost::lexical_cast<uint16_t>(process);
+    // bit_mask
+    getline(iss,process,':');
+    bit_mask=boost::lexical_cast<uint64_t>(process);
+    // compressed_size
+    getline(iss,process,':');
+    uint64_t comp_size=boost::lexical_cast<uint64_t>(process);
+    // setname
+    getline(iss,setname,':');
+    // endl
+    getline(iss,process); // raw BF left base64
+    // allocate size
+    bf = new uint8_t[bf_size];
+    // decode
+    int len;
+    bf = (uint8_t *)b64decode((char*)process.c_str(),process.length(),&len);
+    created=true;
+    hamming=0;
+    fold(folds);
+    compute_hamming();
+}
+
+void
+bloom_filter::compute_hamming() {
+    hamming=0;
+    hamminglg=0;
+    uint64_t *b64 = (uint64_t *)this->bf;
+    for( int j=0; j<bf_size/8; j++) {
+        hamminglg += _mm_popcnt_u64(b64[j]);
+    }
 }
