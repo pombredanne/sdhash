@@ -31,6 +31,8 @@
 // includes CUDA
 #include <cuda_runtime.h>
 
+#define MIN_FULLNESS 16
+
 // includes, project
 //#include <helper_cuda.h>
 //#include <helper_functions.h> // helper functions for SDK examples
@@ -143,14 +145,19 @@ __global__ void CutoffKernel(uint16_t *R, uint16_t *cache, uint16_t *s1, uint16_
     int col = blockIdx.x * blockDim.x + threadIdx.x;
 	// if either filter does not have enough elements
 	// throw out the result
-	if ((s1[row] < 16 ) || (s2[col] < 16)) {
+	int min_est=0;
+	int s1row=s1[row];
+	int s2col=s2[col];
+	if ((s1row < MIN_FULLNESS ) || (s2col < MIN_FULLNESS)) {
 		R[row * longsideB + col]=0;
 	} else {
-		// otherwise, calculate cutoff value from lookup and apply it.
+		if (s1row==160 && s2col==160) // cache hit avoidance; most common case
+			min_est=214;
+		else 
+			min_est=cache[s1row*256+s2col];	// expensive
 		int max_est = (ham1[row] < ham2[col]) ? ham1[row]: ham2[col];
-		int min_est=cache[s1[row]*256+s2[col]];	
-		int cut_off=(uint16_t)(0.3*(float)(max_est-min_est)+(float)min_est);
-		R[row * longsideB + col] = (R[row * longsideB + col] > cut_off)? 100*(R[row * longsideB + col]-cut_off)/(max_est-cut_off) : 0 ;
+		float cut_off=(0.3*(float)(max_est-min_est)+(float)min_est);
+		R[row * longsideB + col] = (R[row * longsideB + col] > cut_off)? (uint16_t)llrintf(100*(R[row * longsideB + col]-cut_off)/(max_est-cut_off)) : 0 ;
 	}
 }
 
@@ -305,12 +312,13 @@ int sdbfsetCompare(sdbf_set *refset, sdbf_set *target, bool quiet, int confidenc
 		}
 		// if the whole block has too few elements, skip it.
 		// for filtering out empty parts of drives
-		if (max_elem < 16) {
+		if (max_elem < MIN_FULLNESS) {
 			free(h_B);
 			free(ham_B);
 			free(elem_B);
 			continue;
 		}
+
 		uint16_t *ham_Bd, *elem_Bd;
 		error = cudaMalloc((void **) &elem_Bd, mem_size_Bct);
 		if (error != cudaSuccess)    {
@@ -356,8 +364,8 @@ int sdbfsetCompare(sdbf_set *refset, sdbf_set *target, bool quiet, int confidenc
 			    result_count++;
 			    score+=results[i];
 			}
-                        if (elem_A[i] >= 16) 
-                            filter_count++;
+			if (elem_A[i]>=MIN_FULLNESS)
+				filter_count++;
 			if (i+1 == setsize) {
 				if (result_count!=0  && (score/filter_count >= confidence)) {
 					cout << target->at(m)->name()  << "|"<< refset->bf_vector->at(i)->name() << "|" << score/filter_count<< endl;
@@ -451,7 +459,8 @@ int matrixCompare(int block_size, int shortside, int long_A, int long_B, uint64_
         exit(EXIT_FAILURE);
     }
 	//reduction kernel -- runs on 1-dimension not in a grid shape like the others
-	ReduceKernel<<<dimsC.y/1024,1024>>>(d_C, d_R, dimsC.x);
+	//ReduceKernel<<<dimsC.y/1024,1024>>>(d_C, d_R, dimsC.x);
+	ReduceKernel<<<dimsC.y/16,16>>>(d_C, d_R, dimsC.x);
     error = cudaMemcpy(resptr, d_R, mem_size_R, cudaMemcpyDeviceToHost);
     if (error != cudaSuccess)    {
         printf("cudaMemcpy (h_R,d_R) returned error code %d, line(%d)\n", error, __LINE__);
