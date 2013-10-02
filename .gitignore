@@ -11,3 +11,18 @@
 *.lai
 *.la
 *.a
+
+sdhash
+
+# automake artifacts 
+.libs
+.deps
+aclocal.m4
+autom4te.cache
+config.h
+config.log
+config.status
+stamp-h1
+
+#xcode
+sdhash-xcode
