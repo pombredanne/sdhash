@@ -1,5 +1,20 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* define if the Boost library is available */
+#undef HAVE_BOOST
+
+/* define if the Boost::Filesystem library is available */
+#undef HAVE_BOOST_FILESYSTEM
+
+/* define if the Boost::PROGRAM_OPTIONS library is available */
+#undef HAVE_BOOST_PROGRAM_OPTIONS
+
+/* define if the Boost::System library is available */
+#undef HAVE_BOOST_SYSTEM
+
+/* define if the Boost::Thread library is available */
+#undef HAVE_BOOST_THREAD
+
 /* Define to 1 if you have the <CL/cl.h> header file. */
 #undef HAVE_CL_CL_H
 
@@ -9,23 +24,11 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if you have the `boost_filesystem' library
-   (-lboost_filesystem). */
-#undef HAVE_LIBBOOST_FILESYSTEM
-
-/* Define to 1 if you have the `boost_program_options' library
-   (-lboost_program_options). */
-#undef HAVE_LIBBOOST_PROGRAM_OPTIONS
-
-/* Define to 1 if you have the `boost_system' library (-lboost_system). */
-#undef HAVE_LIBBOOST_SYSTEM
-
-/* Define to 1 if you have the `boost_thread-mt' library (-lboost_thread-mt).
-   */
-#undef HAVE_LIBBOOST_THREAD_MT
-
 /* Define to 1 if you have the `crypto' library (-lcrypto). */
 #undef HAVE_LIBCRYPTO
+
+/* Define to 1 if you have the `protobuf' library (-lprotobuf). */
+#undef HAVE_LIBPROTOBUF
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H

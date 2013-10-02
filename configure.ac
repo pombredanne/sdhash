@@ -2,10 +2,15 @@ AC_INIT(sdhash-ses,3.3-ses,sesuncedu@gmail.com)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS(config.h)
-AM_INIT_AUTOMAKE([no-define foreign])
+AM_INIT_AUTOMAKE([no-define foreign subdir-objects])
 AC_CONFIG_FILES(Makefile )
+: ${PROF="-g -O2"}
+AC_SUBST(PROF)
+: ${CFLAGS=${PROF}}
+: ${CXXFLAGS=${PROF}}
+AC_PROG_CXX([clang++ g++ c++ CC])
+AC_PROG_CC([clang gcc cc])
 AC_PROG_LIBTOOL
-AC_PROG_CXX
 AX_CHECK_CL
 if test "X$no_cl" = "Xyes"; then
     AC_MSG_FAILURE([You need OpenCL])
@@ -19,12 +24,15 @@ AC_COMPILE_IFELSE(
 ])],[SIMDFLAGS="-msse4.2"],[CXXFLAGS=$ax_save_CXXFLAGS])
 AC_SUBST(HAVE_SSE42)
 AC_SUBST(SIMD_FLAGS)
-AC_HAVE_LIBRARY([boost_system])
-AC_HAVE_LIBRARY([boost_filesystem])
-AC_HAVE_LIBRARY([boost_program_options])
-AC_HAVE_LIBRARY([boost_thread-mt])
+AX_BOOST_BASE
+AX_BOOST_THREAD
+AX_BOOST_FILESYSTEM
+AX_BOOST_PROGRAM_OPTIONS
+AX_BOOST_SYSTEM
 AC_HAVE_LIBRARY([crypto])
-
-dnl AC_CHECK_LIB([boost],[main],[AC_SUBST(LIB_BOOST,["-lboost_system -lboost_filesystem -lboost_program_options -lboost_thread"])])
+AC_CHECK_HEADER([google/protobuf/stubs/common.h],[],
+   [echo "google protobuf header does not seem to be available"
+    exit 1])
+AC_HAVE_LIBRARY([protobuf])
 AC_LANG_POP([C++])
 AC_OUTPUT
