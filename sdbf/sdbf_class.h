@@ -30,8 +30,8 @@ class sdbf {
     */
 
 public:
-    /// to read formatted sdbfs from open file pointer
-    sdbf(FILE *in); 
+    /// to read a formatted sdbf from string
+    sdbf(const std::string& str); 
     /// to create new from a single file
     sdbf(const char *filename, uint32_t dd_block_size); 
     /// to create by reading from an open stream
@@ -112,6 +112,8 @@ private:
     uint32_t  dd_block_size; // Size of the base block in dd mode
     uint64_t orig_file_size; // size of the original file
     bool     filenamealloc;
+public:
+    std::vector<class bloom_filter *> *big_filters;
 
 };
 

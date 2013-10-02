@@ -61,6 +61,8 @@
 #define SD_SCORE_SCALE      0.3
 #define SYNC_SIZE           16384
 
+#define BIGFILTER       131072
+
 // ugly ugly cpuid check.  have to include it for OS X/Linux on same compile
 
 #ifndef _WIN32

@@ -8,6 +8,7 @@
 #include "sdbf_class.h"
 #include "bloom_filter.h"
 #include "util.h"
+#include "blooms.pb.h"
 
 
 /// sdbf_set class
@@ -57,6 +58,10 @@ public:
 
     /// return a string which contains the output-encoded sdbfs in this set
     std::string to_string() const;
+
+    std::string to_multi() const;
+
+    //void to_bloomset(blooms::BloomSet *out);
 
     /// return a string which contains the results of this set's index seraching
     std::string index_results() const;
