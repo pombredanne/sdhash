@@ -16,7 +16,7 @@
 #include <iomanip>
 
 #include <boost/lexical_cast.hpp>
-
+#define STREAM_CHUNK_SIZE (32 * KB)
 using namespace std;
 /** 
     \internal
@@ -38,7 +38,7 @@ sdbf::sdbf(const char *filename, uint32_t dd_block_size) {
     this->orig_file_size=mfile->size;
     if (!dd_block_size) {  // stream mode
         this->max_elem = config->max_elem;
-        gen_chunk_sdbf( mfile->buffer,mfile->size, 32*MB);
+        gen_chunk_sdbf( mfile->buffer,mfile->size, STREAM_CHUNK_SIZE);
     } else {  // block mode
         this->max_elem = config->max_elem_dd;
         uint64_t dd_block_cnt =  mfile->size/dd_block_size;
@@ -81,7 +81,7 @@ sdbf::sdbf(const char *name, std::istream *ifs, uint32_t dd_block_size, uint64_t
     this->orig_file_size=chunk_size;
     if (!dd_block_size) {  // single stream mode should not be used but we'll support it anyway
         this->max_elem = config->max_elem;
-        gen_chunk_sdbf(bufferinput,msize, 32*MB);
+        gen_chunk_sdbf(bufferinput,msize, STREAM_CHUNK_SIZE);
     } else { // block mode
         this->max_elem = config->max_elem_dd;
         uint64_t dd_block_cnt =  msize/dd_block_size;
@@ -114,7 +114,7 @@ sdbf::sdbf(const char *name, char *str, uint32_t dd_block_size, uint64_t length,
     this->orig_file_size=length;
     if (!dd_block_size) {  // single stream mode should not be used but we'll support it anyway
         this->max_elem = config->max_elem;
-        gen_chunk_sdbf((uint8_t*)str,length, 32*MB);
+        gen_chunk_sdbf((uint8_t*)str,length, STREAM_CHUNK_SIZE);
     } else { // block mode
         this->max_elem = config->max_elem_dd;
         uint64_t dd_block_cnt =  length/dd_block_size;

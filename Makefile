@@ -261,7 +261,7 @@ BOOST_SYSTEM_LIB = -lboost_system
 BOOST_THREAD_LIB = -lboost_thread-mt
 CC = clang
 CCDEPMODE = depmode=gcc3
-CFLAGS = -Ofast
+CFLAGS = -fsanitize=integer -O0 -g 
 CL_CFLAGS = -D_THREAD_SAFE 
 CL_LIBS = -framework OpenCL  -lm
 CPP = clang -E
@@ -269,7 +269,7 @@ CPPFLAGS = -I/opt/local/include
 CXX = clang++
 CXXCPP = clang++ -E
 CXXDEPMODE = depmode=gcc3
-CXXFLAGS = -Ofast -msse4.2
+CXXFLAGS = -fsanitize=integer -O0 -g  -msse4.2
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
@@ -315,7 +315,7 @@ PACKAGE_TARNAME = sdhash-ses
 PACKAGE_URL = 
 PACKAGE_VERSION = 3.3-ses
 PATH_SEPARATOR = :
-PROF = -Ofast
+PROF = -fsanitize=integer -O0 -g 
 PTHREAD_CC = clang
 PTHREAD_CFLAGS = -D_THREAD_SAFE -D_THREAD_SAFE 
 PTHREAD_LIBS = 
@@ -370,7 +370,7 @@ mandir = ${datarootdir}/man
 mkdir_p = $(MKDIR_P)
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /usr/local
+prefix = /Users/ses/src/sdhash/dist
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin

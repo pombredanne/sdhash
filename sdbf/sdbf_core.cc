@@ -27,17 +27,20 @@ sdbf::gen_chunk_ranks( uint8_t *file_buffer, const uint64_t chunk_size, uint16_t
         memcpy( chunk_ranks, chunk_ranks+chunk_size-carryover, carryover*sizeof(uint16_t));
     }
     memset( chunk_ranks+carryover,0, (chunk_size-carryover)*sizeof( uint16_t));
-    for( offset=0; offset<chunk_size-config->entr_win_size; offset++) {
-        // Initial/sync entropy calculation
-         if( offset % config->block_size == 0) {
-            entropy = config->entr64_init_int( file_buffer+offset, ascii);
-        // Incremental entropy update (much faster)
-        } else {
-            entropy = config->entr64_inc_int( entropy, file_buffer+offset-1, ascii);
-        }
-        chunk_ranks[offset] = config->ENTR64_RANKS[entropy >> ENTR_POWER];
+    int64_t limit = int64_t(chunk_size)-int64_t(config->entr_win_size); 
+    if(limit >0) {
+      for( offset=0; offset<limit; offset++) {
+	// Initial/sync entropy calculation
+	if( offset % config->block_size == 0) {
+	  entropy = config->entr64_init_int( file_buffer+offset, ascii);
+	  // Incremental entropy update (much faster)
+	} else {
+	  entropy = config->entr64_inc_int( entropy, file_buffer+offset-1, ascii);
+	}
+	chunk_ranks[offset] = config->ENTR64_RANKS[entropy >> ENTR_POWER];
+      }
+      free( ascii);
     }
-    free( ascii);
 }
 
 /**
@@ -49,77 +52,81 @@ sdbf::gen_chunk_scores( const uint16_t *chunk_ranks, const uint64_t chunk_size, 
     uint32_t pop_win = config->pop_win_size;
     uint64_t min_pos = 0;
     uint16_t min_rank = chunk_ranks[min_pos]; 
-
     memset( chunk_scores, 0, chunk_size*sizeof( uint16_t));
-    for( i=0; i<chunk_size-pop_win; i++) {
+    if(chunk_size > pop_win) {
+      
+      for( i=0; i<chunk_size-pop_win; i++) {
         // try sliding on the cheap    
         if( i>0 && min_rank>0) {
-            while( chunk_ranks[i+pop_win] >= min_rank && i<min_pos && i<chunk_size-pop_win+1) {
-                if( chunk_ranks[i+pop_win] == min_rank)
-                    min_pos = i+pop_win;
-                chunk_scores[min_pos]++;
-                i++;
-            }
+	  while( chunk_ranks[i+pop_win] >= min_rank && i<min_pos && i<chunk_size-pop_win+1) {
+	    if( chunk_ranks[i+pop_win] == min_rank)
+	      min_pos = i+pop_win;
+	    chunk_scores[min_pos]++;
+	    i++;
+	  }
         }      
         min_pos = i;
         min_rank = chunk_ranks[min_pos];
         for( j=i+1; j<i+pop_win; j++) {
-            if( chunk_ranks[j] < min_rank && chunk_ranks[j]) {
-                min_rank = chunk_ranks[j];
-                min_pos = j;
-            } else if( min_pos == j-1 && chunk_ranks[j] == min_rank) {
-                min_pos = j;
-            }
+	  if( chunk_ranks[j] < min_rank && chunk_ranks[j]) {
+	    min_rank = chunk_ranks[j];
+	    min_pos = j;
+	  } else if( min_pos == j-1 && chunk_ranks[j] == min_rank) {
+	    min_pos = j;
+	  }
         }
         if( chunk_ranks[min_pos] > 0) {
-            chunk_scores[min_pos]++;
+	  chunk_scores[min_pos]++;
         }
+      }
+      if( score_histo) {
+        for( i=0; i<chunk_size-pop_win; i++)
+	  score_histo[chunk_scores[i]]++;
+      }
     }
     // Generate score histogram (for b-sdbf signatures)
-    if( score_histo) {
-        for( i=0; i<chunk_size-pop_win; i++)
-            score_histo[chunk_scores[i]]++;
-    }
 }
 /**
  * Generate SHA1 hashes and add them to the SDBF--original stream version.
  */
 void 
 sdbf::gen_chunk_hash( uint8_t *file_buffer, const uint64_t chunk_pos, const uint16_t *chunk_scores, const uint64_t chunk_size) {
-    uint64_t i;
-    uint32_t sha1_hash[5];
-    uint32_t bf_count = this->bf_count;
-    uint32_t last_count = this->last_count;
-    uint8_t *curr_bf = this->buffer + (bf_count-1)*(this->bf_size);
+  uint64_t i;
+  uint32_t sha1_hash[5];
+  uint32_t bf_count = this->bf_count;
+  uint32_t last_count = this->last_count;
+  uint8_t *curr_bf = this->buffer + (bf_count-1)*(this->bf_size);
+  if(chunk_size > config->pop_win_size) {
     for( i=0; i<chunk_size-config->pop_win_size; i++) {
-        if( chunk_scores[i] > config->threshold) {
-            // ADD to INDEX
-            SHA1( file_buffer+chunk_pos+i, config->pop_win_size, (uint8_t *)sha1_hash);
-            uint32_t bits_set = bf_sha1_insert( curr_bf, 0, (uint32_t *)sha1_hash);
-            // Avoid potentially repetitive features
-            if( !bits_set)
-                continue;
-            if (this->info!=NULL)
-                if (this->info->index) {
-                    bool ins=this->info->index->insert_sha1((uint32_t*)sha1_hash);
-                    if (ins==false)
-                        continue;
-                }
-// new style big filters...
-bool inserted=this->big_filters->back()->insert_sha1((uint32_t*)sha1_hash);
-if (inserted==false) 
-    continue;
-            last_count++;
-            if( last_count == this->max_elem) {
-                curr_bf += this->bf_size;  
-                this->big_filters->push_back(new bloom_filter(BIGFILTER,5,160,0.01));
-                bf_count++;
-                last_count = 0;
-            } 
-        }
+      if( chunk_scores[i] > config->threshold) {
+	// ADD to INDEX
+	SHA1( file_buffer+chunk_pos+i, config->pop_win_size, (uint8_t *)sha1_hash);
+	uint32_t bits_set = bf_sha1_insert( curr_bf, 0, (uint32_t *)sha1_hash);
+	// Avoid potentially repetitive features
+	if( !bits_set)
+	  continue;
+	if (this->info!=NULL)
+	  if (this->info->index) {
+	    bool ins=this->info->index->insert_sha1((uint32_t*)sha1_hash);
+	    if (ins==false)
+	      continue;
+	  }
+	// new style big filters...
+	bool inserted=this->big_filters->back()->insert_sha1((uint32_t*)sha1_hash);
+	if (inserted==false) 
+	  continue;
+	last_count++;
+	if( last_count == this->max_elem) {
+	  curr_bf += this->bf_size;  
+	  this->big_filters->push_back(new bloom_filter(BIGFILTER,5,160,0.01));
+	  bf_count++;
+	  last_count = 0;
+	} 
+      }
     }
-    this->bf_count = bf_count;
-    this->last_count = last_count;//
+  }
+  this->bf_count = bf_count;
+  this->last_count = last_count;//
 }
 
 /**

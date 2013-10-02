@@ -58,10 +58,10 @@ sdbf_conf::entr64_inc_int( uint64_t prev_entropy, const uint8_t *buffer, uint8_t
   if( old_char_cnt == new_char_cnt+1)
     return prev_entropy;
 
-  int64_t old_diff = ENTROPY_64_INT[old_char_cnt]   - ENTROPY_64_INT[old_char_cnt-1];
-  int64_t new_diff = ENTROPY_64_INT[new_char_cnt+1] - ENTROPY_64_INT[new_char_cnt];
+  int64_t old_diff = int64_t(ENTROPY_64_INT[old_char_cnt])   - int64_t(ENTROPY_64_INT[old_char_cnt-1]);
+  int64_t new_diff = int64_t(ENTROPY_64_INT[new_char_cnt+1]) - int64_t(ENTROPY_64_INT[new_char_cnt]);
 
-  int64_t entropy = prev_entropy - old_diff + new_diff;
+  int64_t entropy = int64_t(prev_entropy) - old_diff + new_diff;
   if( entropy < 0)
     entropy = 0;
   else if( entropy > ENTR_SCALE)
