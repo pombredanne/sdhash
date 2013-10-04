@@ -216,6 +216,13 @@ sdbf::~sdbf() {
         free(elem_counts);
     if (filenamealloc)
         free(hashname);
+    if(big_filters) {
+        vector<bloom_filter*>::iterator it = big_filters->begin();
+        for(; it != big_filters->end(); it++) {
+            delete *it;
+        }
+        delete big_filters;
+    }
 } 
 
 /**
