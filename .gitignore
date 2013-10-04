@@ -23,6 +23,7 @@ config.h
 config.log
 config.status
 stamp-h1
+Makefile
 
 #xcode
 sdhash-xcode
