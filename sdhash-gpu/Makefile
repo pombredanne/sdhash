@@ -7,7 +7,7 @@ LDFLAGS2=-lsdbf -lboost_system -lboost_filesystem -lboost_program_options -lc -l
 program: all 
 
 matrixCompare-c.o:
-	$(NVCC) $(INCLUDES) -c matrixCompare.cu -o matrixCompare-c.o
+	$(NVCC) $(INCLUDES) -arch=sm_20 -c matrixCompare.cu -o matrixCompare-c.o
 matrixCompare.o:
 	$(CC) $(INCLUDES) -c matrixCompare.cpp
 
