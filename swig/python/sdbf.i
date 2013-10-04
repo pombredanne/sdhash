@@ -3,13 +3,8 @@
 #include "../../sdbf/sdbf_class.h"
 #include "../../sdbf/sdbf_conf.h"
 #include "../../sdbf/sdbf_defines.h"
-#include "../../sdbf/sdhash_set.h"
 #include <stdint.h>
 #include <stdio.h>
-#include <unordered_set> 
-//typedef unsigned int uint32_t;
-//typedef long long unsigned int uint64_t;
-//typedef unsigned long int uint64_t;
 
 %}
 
@@ -25,9 +20,6 @@ typedef int int32_t;
 typedef unsigned long int uint64_t;
 typedef long int int64_t;
 
-FILE *fopen(const char *filename, const char *mode);
-int fclose(FILE *);
-int feof(FILE *);
 
 class sdbf_conf {
 
@@ -38,34 +30,53 @@ public:
 };
 
 
+/// sdbf class
 class sdbf {
-    friend std::ostream& operator<<(std::ostream& os, const sdbf& s); 
-    friend std::ostream& operator<<(std::ostream& os, const sdbf *s); 
+
+    //friend std::ostream& operator<<(std::ostream& os, const sdbf& s); ///< output operator
+    //friend std::ostream& operator<<(std::ostream& os, const sdbf *s); ///< output operator
+
+    /** \example sdbf_test.cc
+    *  A very short example program using sdbf.
+    */
 
 public:
-    sdbf(FILE *in); // from stream
-    sdbf(char *filename, uint32_t dd_block_size); // to create from file
-    sdbf(char *name, std::istream *ifs, uint32_t dd_block_size, uint64_t msize) ;
+    /// to read a formatted sdbf from string
+    sdbf(const std::string& str); 
+    /// to create new from a single file
+    sdbf(const char *filename, uint32_t dd_block_size); 
+    /// to create by reading from an open stream
+    sdbf(const char *name, std::istream *ifs, uint32_t dd_block_size, uint64_t msize, index_info *info) ; 
+    /// to create from a c-string
+    sdbf(const char *name, char *str, uint32_t dd_block_size, uint64_t length, index_info *info);
+    /// destructor
+    ~sdbf(); 
 
-    ~sdbf(); // destructor
+    /// object name
+    const char *name();  
+    /// object size
+    uint64_t size();  
+    /// source object size
+    uint64_t input_size();  
 
-    char *get_name();  // object name
-    uint64_t get_size();  // object size
-    uint64_t get_real_size();  // source object size
+    /// matching algorithm, take other object and run match
+    int32_t compare(sdbf *other, uint32_t sample);
 
-    // matching algorithm, take other object and run match
-    uint32_t compare(sdbf *other, uint32_t map_on, uint32_t sample);
+    /// return a string representation of this sdbf
+    std::string to_string() const ; 
 
-    void to_stream(FILE *out); // write self to stream
+    /// return results of index search
+    std::string get_index_results() const; 
 
-    string tostring() const;
+    /// return a copy of an individual bloom filter from this sdbf
+    uint8_t *clone_filter(uint32_t position);
+    uint32_t filter_count();
+
 public:
-    static class sdbf_conf *myconf;  // global configuration object
-
-%extend {
-    void print_sdbf(sdbf *printme) {
-        printme->to_stream(stdout);
-    }
-}
+    /// global configuration object
+    static class sdbf_conf *config;  
+    static int32_t get_elem_count(sdbf *mine, uint64_t index) ;
 
 };
+
+

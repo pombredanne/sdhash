@@ -7,6 +7,7 @@
 #include "bloom_filter.h"
 #include "util.h"
 #include "sdbf_set.h"
+#include "blooms.pb.h"  // for --multi output
 
 #include <boost/filesystem.hpp>
 
@@ -49,24 +50,19 @@ sdbf_set::sdbf_set(bloom_filter *index) {
 */
 sdbf_set::sdbf_set(const char *fname) {
     if (fs::is_regular_file(fname)) {
-        FILE *in = fopen( fname, "r");
-        if (in!=NULL) {  // if fail to open leave set empty
-            setname=(string)fname;
-            int bar=getc( in);
-            if (!feof(in)) {
-                ungetc(bar,in);
-            }
-            while( !feof( in)) {
-                class sdbf *sdbfm = new sdbf( in);
+        ifstream ifs(fname,ifstream::in|ios::binary);
+        if (ifs.is_open()) {
+            while( !ifs.eof()) {
+                string process;
+                getline(ifs,process);
+                if (process.length()==0) 
+                    break;
+                setname=(string)fname;
+                class sdbf *sdbfm = new sdbf(process);
                 items.push_back( sdbfm);
-                getc( in);
-                int bar=getc( in);
-                if (!feof(in)) {
-                    ungetc(bar,in);
-                }
             }
         }
-        fclose(in);
+        ifs.close();
     }
     // right now we cannot read-in an index.  
     // but we can set one later
@@ -180,6 +176,55 @@ sdbf_set::to_string() const {
     }
     return builder.str();
 }
+
+
+
+std::string 
+sdbf_set::to_multi() const {
+    std::stringstream builder;
+    for (std::vector<sdbf*>::const_iterator it = items.begin(); it!=items.end() ; ++it)  {
+        int filter_ct=(*it)->big_filters->size();
+        // for each object 
+        builder << "sdbf-mr:04:" << strlen((*it)->name())<< ":";
+        builder << (*it)->name()<< ":" ;
+        builder << (*it)->input_size() << ":sha1:";
+        builder << (*it)->big_filters->at(0)->bf_size << ":";
+        builder << (*it)->big_filters->at(0)->hash_count << ":";
+        builder << hex <<  (*it)->big_filters->at(0)->bit_mask << ":" << dec;
+        builder << (*it)->big_filters->at(0)->max_elem << ":";
+        builder << filter_ct << ":"  ;
+        builder << (*it)->big_filters->at(filter_ct-1)->elem_count() << ":";
+        for (int i=0; i < filter_ct; i++) {
+            //(*it)->big_filters->at(i)->set_name((string)(*it)->name());
+            builder << (*it)->big_filters->at(i)->to_string() ;    
+        }
+        builder << endl;
+    }
+    return builder.str();
+}
+/*
+void
+sdbf_set::to_bloomset(blooms::BloomSet *out) {
+    for (std::vector<sdbf*>::const_iterator it = items.begin(); it!=items.end() ; ++it)  {
+        int filter_ct=(*it)->big_filters->size();
+        blooms::BloomVector* vect=out->add_items();
+        vect->set_name((*it)->name());
+        for (int i=0; i < filter_ct; i++) {
+            blooms::BloomFilter *tmp=vect->add_filters();
+            tmp->set_bf_size((*it)->big_filters->at(i)->bf_size) ;    
+            tmp->set_max_elem((*it)->big_filters->at(i)->max_elem) ;    
+            tmp->set_elem_count((*it)->big_filters->at(i)->elem_count()) ;    
+            tmp->set_id(i);
+          //  tmp->set_name((*it)->name());
+            uint64_t* b64tmp=(uint64_t*)(*it)->big_filters->at(i)->bf;
+            for (int j=0; j < (*it)->big_filters->at(i)->bf_size / 8 ; j++) {
+                tmp->add_filter(b64tmp[j]);
+            }    
+        }         
+    }
+}
+*/
+
 
 /** 
     Write this sdbf_set to stream 
